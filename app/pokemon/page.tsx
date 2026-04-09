@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { fetchTypes, fetchPokemons, searchPokemons } from "@/lib/pokeapi";
+import { fetchTypes } from "@/lib/pokeapi";
 import type { SearchParams } from "@/types/pokemon";
 import { PokemonExplorer } from "@/components/PokemonExplorer";
 import { GridSkeleton } from "@/components/Skeletons";
@@ -23,10 +23,7 @@ export default async function PokemonPage({ searchParams }: PageProps) {
   const page = Math.max(1, Number(params.page ?? "1"));
   const sortBy = params.sort_by ?? "id.asc";
 
-  const [genres] = await Promise.all([
-    fetchTypes(),
-    query ? searchPokemons(query, page) : fetchPokemons(page, genre || undefined, sortBy),
-  ]);
+  const genres = await fetchTypes();
 
   return (
     <div className="flex flex-col gap-6">

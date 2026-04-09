@@ -31,10 +31,6 @@ function normalizeName(name: string) {
   return name.replace(/-/g, " ");
 }
 
-function toPage(offset: number): number {
-  return Math.floor(offset / PAGE_SIZE) + 1;
-}
-
 async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) throw new Error(`PokéAPI ${res.status}: ${url}`);
@@ -68,7 +64,7 @@ export async function fetchPokemons(
     const members = data.pokemon.slice(0, 200); // cap at 200 for perf
     const details = await Promise.all(
       members.map((m) =>
-        apiFetch<RawPokemon>(m.pokemon.url, { next: { revalidate: 3600 } } as RequestInit)
+        apiFetch<RawPokemon>(m.pokemon.url)
       )
     );
     let sorted = details.map(rawToPokemon);
@@ -83,14 +79,11 @@ export async function fetchPokemons(
 
   const offset = (page - 1) * PAGE_SIZE;
   const list = await apiFetch<{ count: number; results: { name: string; url: string }[] }>(
-    `${BASE_URL}/pokemon?limit=${PAGE_SIZE}&offset=${offset}`,
-    { next: { revalidate: 600 } } as RequestInit
+    `${BASE_URL}/pokemon?limit=${PAGE_SIZE}&offset=${offset}`
   );
 
   const details = await Promise.all(
-    list.results.map((p) =>
-      apiFetch<RawPokemon>(p.url, { next: { revalidate: 3600 } } as RequestInit)
-    )
+    list.results.map((p) => apiFetch<RawPokemon>(p.url))
   );
 
   return {
@@ -118,16 +111,11 @@ export async function searchPokemons(
 }
 
 export async function fetchPokemonDetail(id: number): Promise<PokemonDetail> {
-  const raw = await apiFetch<RawPokemon>(
-    `${BASE_URL}/pokemon/${id}`,
-    { next: { revalidate: 3600 } } as RequestInit
-  );
+  const raw = await apiFetch<RawPokemon>(`${BASE_URL}/pokemon/${id}`);
 
   let flavor_text: string | undefined;
   try {
-    const species = await apiFetch<RawSpecies>(raw.species.url, {
-      next: { revalidate: 3600 },
-    } as RequestInit);
+    const species = await apiFetch<RawSpecies>(raw.species.url);
     flavor_text = species.flavor_text_entries
       .find((e) => e.language.name === "en")
       ?.flavor_text.replace(/\f/g, " ");
