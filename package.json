@@ -8,9 +8,7 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "preview": "npm run pages:build && wrangler pages dev",
-    "deploy": "npm run pages:build && wrangler pages deploy"
+    "pages:build": "npx @cloudflare/next-on-pages@1"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.7",
