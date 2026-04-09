@@ -4,14 +4,14 @@ A production-quality Content Explorer built with Next.js 15, TypeScript, and Tai
 
 ## Live Demo
 
-> Deployed on Cloudflare Pages: **[content-explorer.pages.dev](https://content-explorer.pages.dev)**
+> Deployed on Cloudflare Pages: **[pokee-1de.pages.dev](https://pokee-1de.pages.dev/)**
 
 ---
 
 ## Setup
 
 ```bash
-git clone https://github.com/your-username/content-explorer.git
+git clone https://github.com/Aladefaruk/poke.git
 cd content-explorer
 npm install
 npm run dev   # http://localhost:3000
@@ -50,9 +50,9 @@ __tests__/              # Vitest + RTL tests
 
 ### Server vs Client Rendering
 
-- **Listing page (`/pokemon`)**: Server Component that fetches types and initial Pokémon data server-side. This gives a fast, SEO-friendly first paint with real content — no loading flash on initial load.
+- **Listing page (`/pokemon`)**: Server Component that fetches only the type list server-side (for the filter dropdown), then returns immediately. The grid is populated client-side by `PokemonExplorer` via TanStack Query.
 - **Interactive layer (`PokemonExplorer`)**: Client Component that takes over after hydration. Search/filter/pagination state lives here, driven by TanStack Query hitting `/api/pokemon`. URL is kept in sync via `useSearchParams` + `router.replace` so results are shareable.
-- **Detail page (`/pokemon/[id]`)**: Uses `generateStaticParams` to pre-render the first 60 Pokémon at build time (ISR). Unknown IDs are rendered on-demand and cached.
+- **Detail page (`/pokemon/[id]`)**: Rendered on-demand at the edge on first request. 
 
 ### Why Pagination over Infinite Scroll
 
@@ -86,15 +86,8 @@ Every `<Image>` has explicit `sizes` and `fill` props. Above-the-fold cards (fir
 ### 2. `next/font` for Inter
 `Inter` is loaded via `next/font/google` with `display: swap` and `subsets: ["latin"]`. This self-hosts the font, eliminates the render-blocking Google Fonts request, and prevents layout shift (CLS = 0 from font swap).
 
-### 3. Next.js fetch cache strategy (per endpoint)
-| Endpoint | Cache setting | Reason |
-|---|---|---|
-| `/type` | `force-cache` | Type list never changes; cache indefinitely |
-| `/pokemon?limit&offset` | `revalidate: 600` | Pokémon list is stable; 10-min ISR is fresh enough |
-| `/pokemon/:id` | `revalidate: 3600` | Pokémon data never changes; 1-hour revalidation is sufficient |
-| `/pokemon/:name` (search) | `no-store` | User queries are unique; caching would waste memory |
 
-### 4. Cloudflare Cache-Control headers on API route
+### 3. Cloudflare Cache-Control headers on API route
 The `/api/pokemon` route handler returns:
 ```
 Cache-Control: public, s-maxage=60, stale-while-revalidate=300
@@ -113,10 +106,10 @@ Prevents the 15px layout shift that occurs when navigating between pages with/wi
 
 | Area | Decision | What I'd do with more time |
 |---|---|---|
-| **Images on Cloudflare** | `next/image` requires a server for on-demand optimization. On Cloudflare Workers, this needs `@cloudflare/next-on-pages` + Cloudflare Images or a custom loader. | Configure a Cloudflare Images loader or use `unoptimized` only for the CF build. |
+| **Images on Cloudflare** | `next/image` optimisation requires a Node.js server. On Cloudflare Workers `unoptimized: true` is set so images are served directly from the GitHub sprites CDN. | Configure a Cloudflare Images loader for resizing and WebP conversion. |
 | **Search UX** | PokéAPI has no search endpoint — only exact name lookup. | Fetch the full name list once, cache it, and do client-side prefix filtering for a proper typeahead experience. |
 | **Type filter performance** | Filtering by type fetches all members of that type (up to 200) in parallel, then paginates client-side. | Cache type member lists at the edge to avoid the fan-out on every request. |
-| **generateStaticParams** | Only pre-renders 60 Pokémon (3 pages × 20). | Increase to 10 pages or use ISR with `fallback: "blocking"` for all IDs. |
+| **Edge runtime** | `generateStaticParams` was removed as it is incompatible with the edge runtime. All pages render on-demand and rely on Cloudflare's CDN cache. | Pre-render popular Pokémon at build time using a Node.js runtime target. |
 | **Error reporting** | `console.error` only. | Integrate Sentry with `captureException` in error boundaries. |
 | **Accessibility audit** | Manual checks only. | Run `axe-core` in CI and fix all violations before shipping. |
 
@@ -125,8 +118,8 @@ Prevents the 15px layout shift that occurs when navigating between pages with/wi
 ## Testing
 
 ```bash
-npm test            # run all tests once
-npm run test:watch  # watch mode
+npm test          
+npm run test:watch  
 ```
 
 Tests cover:
@@ -138,7 +131,13 @@ Tests cover:
 
 ## Deployment: Cloudflare Pages
 
-```bash
-npm run pages:build   # builds with @cloudflare/next-on-pages
-npm run deploy        # deploys to Cloudflare Pages via wrangler
-```
+Deployed via Cloudflare Pages connected to GitHub. Every push to `main` triggers a new deploy automatically.
+
+| Field | Value |
+|---|---|
+| Build command | `npx @cloudflare/next-on-pages@1` |
+| Build output directory | `.vercel/output/static` |
+| Node.js version | `20` |
+| Compatibility flag | `nodejs_compat` |
+
+No environment variables required. PokéAPI is fully public.

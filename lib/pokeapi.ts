@@ -56,23 +56,26 @@ export async function fetchPokemons(
   sortBy = "id.asc"
 ): Promise<PaginatedResponse<Pokemon>> {
   if (typeId) {
-    // Filter by type — fetch all members of that type
     const data = await apiFetch<{ pokemon: { pokemon: { name: string; url: string } }[] }>(
       `${BASE_URL}/type/${typeId}`
     );
-    const members = data.pokemon.slice(0, 200); // cap at 200 for perf
+    const members = data.pokemon.slice(0, 200);
+    const total = members.length;
+    const offset = (page - 1) * PAGE_SIZE;
+    const pageMembers = members.slice(offset, offset + PAGE_SIZE);
+
     const details = await Promise.all(
-      members.map((m) =>
-        apiFetch<RawPokemon>(m.pokemon.url)
-      )
+      pageMembers.map((m) => apiFetch<RawPokemon>(m.pokemon.url))
     );
-    let sorted = details.map(rawToPokemon);
-    sorted = applySortAndPage(sorted, sortBy, page);
+
+    let results = details.map(rawToPokemon);
+    results = sortItems(results, sortBy);
+
     return {
       page,
-      results: sorted,
-      total_pages: Math.ceil(members.length / PAGE_SIZE),
-      total_results: members.length,
+      results,
+      total_pages: Math.ceil(total / PAGE_SIZE),
+      total_results: total,
     };
   }
 
@@ -152,8 +155,8 @@ export async function fetchPopularPokemonIds(pages = 3): Promise<number[]> {
 
 // ── Sort helper ───────────────────────────────────────────────────────────────
 
-function applySortAndPage(items: Pokemon[], sortBy: string, page: number): Pokemon[] {
-  const sorted = [...items].sort((a, b) => {
+function sortItems(items: Pokemon[], sortBy: string): Pokemon[] {
+  return [...items].sort((a, b) => {
     switch (sortBy) {
       case "name.asc":
         return a.name.localeCompare(b.name);
@@ -161,10 +164,8 @@ function applySortAndPage(items: Pokemon[], sortBy: string, page: number): Pokem
         return (b.base_experience ?? 0) - (a.base_experience ?? 0);
       case "height.desc":
         return b.height - a.height;
-      default: // id.asc
+      default:
         return a.id - b.id;
     }
   });
-  const start = (page - 1) * PAGE_SIZE;
-  return sorted.slice(start, start + PAGE_SIZE);
 }
