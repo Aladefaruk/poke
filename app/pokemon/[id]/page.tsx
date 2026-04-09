@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { fetchPokemonDetail, fetchPopularPokemonIds, spriteUrl } from "@/lib/pokeapi";
+import { fetchPokemonDetail, spriteUrl } from "@/lib/pokeapi";
 import { Breadcrumb } from "@/components/Breadcrumb";
+
+export const runtime = "edge";
 
 interface PageProps {
   params: Promise<{ id: string }>;
-}
-
-export async function generateStaticParams() {
-  const ids = await fetchPopularPokemonIds(3);
-  return ids.map((id) => ({ id: String(id) }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -30,8 +27,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "Pokémon Not Found" };
   }
 }
-
-export const runtime = "edge";
 
 const TYPE_HERO_BG: Record<string, string> = {
   fire:     "from-orange-950 to-zinc-950",
