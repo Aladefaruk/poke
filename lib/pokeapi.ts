@@ -31,8 +31,8 @@ function normalizeName(name: string) {
   return name.replace(/-/g, " ");
 }
 
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+async function apiFetch<T>(url: string): Promise<T> {
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`PokéAPI ${res.status}: ${url}`);
   return res.json() as Promise<T>;
 }
@@ -58,8 +58,7 @@ export async function fetchPokemons(
   if (typeId) {
     // Filter by type — fetch all members of that type
     const data = await apiFetch<{ pokemon: { pokemon: { name: string; url: string } }[] }>(
-      `${BASE_URL}/type/${typeId}`,
-      { cache: "force-cache" }
+      `${BASE_URL}/type/${typeId}`
     );
     const members = data.pokemon.slice(0, 200); // cap at 200 for perf
     const details = await Promise.all(
@@ -101,9 +100,7 @@ export async function searchPokemons(
   // PokéAPI has no search — fetch by exact name (lowercase, hyphenated)
   const slug = query.trim().toLowerCase().replace(/\s+/g, "-");
   try {
-    const raw = await apiFetch<RawPokemon>(`${BASE_URL}/pokemon/${slug}`, {
-      cache: "no-store",
-    });
+    const raw = await apiFetch<RawPokemon>(`${BASE_URL}/pokemon/${slug}`);
     return { page: 1, results: [rawToPokemon(raw)], total_pages: 1, total_results: 1 };
   } catch {
     return { page: 1, results: [], total_pages: 1, total_results: 0 };
@@ -133,16 +130,18 @@ export async function fetchPokemonDetail(id: number): Promise<PokemonDetail> {
 }
 
 export async function fetchTypes(): Promise<PokemonType[]> {
-  const data = await apiFetch<{ results: { name: string; url: string }[] }>(
-    `${BASE_URL}/type`,
-    { cache: "force-cache" }
-  );
-  // Filter out non-standard types (unknown, shadow)
-  const standard = data.results.filter((t) => !["unknown", "shadow"].includes(t.name));
-  return standard.map((t, i) => ({
-    id: i + 1,
-    name: t.name.charAt(0).toUpperCase() + t.name.slice(1),
-  }));
+  try {
+    const data = await apiFetch<{ results: { name: string; url: string }[] }>(
+      `${BASE_URL}/type`
+    );
+    const standard = data.results.filter((t) => !["unknown", "shadow"].includes(t.name));
+    return standard.map((t, i) => ({
+      id: i + 1,
+      name: t.name.charAt(0).toUpperCase() + t.name.slice(1),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchPopularPokemonIds(pages = 3): Promise<number[]> {
